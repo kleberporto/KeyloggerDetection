@@ -2,7 +2,8 @@ package KeyloggerDetection
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import Constants._
 
 object Preprocessing {
 
@@ -15,13 +16,13 @@ object Preprocessing {
     .withColumnRenamed(" Source Port", "SourcePort")
     .withColumnRenamed(" Destination IP", "DestinationIP")
     .withColumnRenamed(" Destination Port", "DestinationPort")
-    .withColumnRenamed(" Protocol", "Protocol")
+    .withColumnRenamed(" Protocol", PROTOCOL)
     .withColumnRenamed(" Timestamp", "Timestamp")
-    .withColumnRenamed(" Flow Duration", "FlowDuration")
-    .withColumnRenamed(" Total Fwd Packets", "TotalFwdPackets")
-    .withColumnRenamed(" Total Backward Packets", "TotalBackwardPackets")
-    .withColumnRenamed("Total Length of Fwd Packets", "TotalLengthFwdPackets")
-    .withColumnRenamed(" Total Length of Bwd Packets", "TotalLengthBwdPackets")
+    .withColumnRenamed(" Flow Duration", FLOW_DURATION)
+    .withColumnRenamed(" Total Fwd Packets", TOTAL_FWD_PACKETS)
+    .withColumnRenamed(" Total Backward Packets", TOTAL_BWD_PACKETS)
+    .withColumnRenamed("Total Length of Fwd Packets", TOTAL_LENGTH_FWD_PACKETS)
+    .withColumnRenamed(" Total Length of Bwd Packets",TOTAL_LENGTH_BWD_PACKETS)
     .withColumnRenamed(" Fwd Packet Length Max", "FwdPacketLengthMax")
     .withColumnRenamed(" Fwd Packet Length Min", "FwdPacketLengthMin")
     .withColumnRenamed(" Fwd Packet Length Mean", "FwdPacketLengthMean")
@@ -30,8 +31,8 @@ object Preprocessing {
     .withColumnRenamed(" Bwd Packet Length Min", "BwdPacketLengthMin")
     .withColumnRenamed(" Bwd Packet Length Mean", "BwdPacketLengthMean")
     .withColumnRenamed(" Bwd Packet Length Std", "BwdPacketLengthStd")
-    .withColumnRenamed("Flow Bytes/s", "FlowBytesPerSecond")
-    .withColumnRenamed(" Flow Packets/s", "FlowPacketsPerSecond")
+    .withColumnRenamed("Flow Bytes/s", FLOW_BYTES_PER_SECOND)
+    .withColumnRenamed(" Flow Packets/s", FLOW_PACKETS_PER_SECOND)
     .withColumnRenamed(" Flow IAT Mean", "FlowIATMean")
     .withColumnRenamed(" Flow IAT Std", "FlowIatStd")
     .withColumnRenamed(" Flow IAT Max", "FlowIatMax")
@@ -50,23 +51,23 @@ object Preprocessing {
     .withColumnRenamed(" Bwd PSH Flags", "BwdPSHFlags")
     .withColumnRenamed(" Fwd URG Flags", "FwdURGFlags")
     .withColumnRenamed(" Bwd URG Flags", "BwdURGFlags")
-    .withColumnRenamed(" Fwd Header Length", "FwdHeaderLength")
-    .withColumnRenamed(" Bwd Header Length", "BwdHeaderLength")
-    .withColumnRenamed("Fwd Packets/s", "FwdPacketsPerSecond")
-    .withColumnRenamed(" Bwd Packets/s", "BwdPacketsPerSecond")
-    .withColumnRenamed(" Min Packet Length", "MinPacketLength")
-    .withColumnRenamed(" Max Packet Length", "MaxPacketLength")
-    .withColumnRenamed(" Packet Length Mean", "PacketLengthMean")
+    .withColumnRenamed(" Fwd Header Length", FWD_HEADER_LENGTH)
+    .withColumnRenamed(" Bwd Header Length", BWD_HEADER_LENGTH)
+    .withColumnRenamed("Fwd Packets/s", FWD_PACKETS_PER_SECOND)
+    .withColumnRenamed(" Bwd Packets/s", BWDPACKETS_PER_SECOND)
+    .withColumnRenamed(" Min Packet Length", MIN_PACKET_LENGTH)
+    .withColumnRenamed(" Max Packet Length", MAX_PACKET_LENGTH)
+    .withColumnRenamed(" Packet Length Mean", PACKET_LENGTH_MEAN)
     .withColumnRenamed(" Packet Length Std", "PacketLengthStd")
     .withColumnRenamed(" Packet Length Variance", "PacketLengthVariance")
-    .withColumnRenamed("FIN Flag Count", "FINFlagCount")
-    .withColumnRenamed(" SYN Flag Count", "SYNFlagCount")
-    .withColumnRenamed(" RST Flag Count", "RSTFlagCount")
-    .withColumnRenamed(" PSH Flag Count", "PSHFlagCount")
-    .withColumnRenamed(" ACK Flag Count", "ACKFlagCount")
-    .withColumnRenamed(" URG Flag Count", "URGFlagCount")
-    .withColumnRenamed(" CWE Flag Count", "CWEFlagCount")
-    .withColumnRenamed(" ECE Flag Count", "ECEFlagCount")
+    .withColumnRenamed("FIN Flag Count", FIN_FLAG_COUNT)
+    .withColumnRenamed(" SYN Flag Count", SYN_FLAG_COUNT)
+    .withColumnRenamed(" RST Flag Count", RST_FLAG_COUNT)
+    .withColumnRenamed(" PSH Flag Count", PSH_FLAG_COUNT)
+    .withColumnRenamed(" ACK Flag Count", ACK_FLAG_COUNT)
+    .withColumnRenamed(" URG Flag Count", URG_FLAG_COUNT)
+    .withColumnRenamed(" CWE Flag Count", CWE_FLAG_COUNT)
+    .withColumnRenamed(" ECE Flag Count", ECE_FLAG_COUNT)
     .withColumnRenamed(" Down/Up Ratio", "DownUpRatio")
     .withColumnRenamed(" Average Packet Size", "AvgPacketSize")
     .withColumnRenamed(" Avg Fwd Segment Size", "AvgFwdSegmentSize")
@@ -94,19 +95,37 @@ object Preprocessing {
     .withColumnRenamed(" Idle Std", "IddleStd")
     .withColumnRenamed(" Idle Max", "IddleMax")
     .withColumnRenamed(" Idle Min", "IddleMin")
-    .withColumnRenamed("Class", "Class")
+    .withColumnRenamed("Class", CLASS)
+    .withColumn(INFECTED, col(CLASS))
 
     renamedDf
   }
 
+  // Filtering protocols not in the valid list
+  def filterProtocolOutliers(df: DataFrame): DataFrame = {
+    val filteredDf = df.filter(col(PROTOCOL).isin(validProtocolsList:_*))
+    filteredDf
+  }
+
   def createInfectedCol(df: DataFrame): DataFrame = {
-    df.withColumn("Infected", when(col("Class") === "Benign", lit(0))
+    df.withColumn(INFECTED, when(col(INFECTED) === "Benign", lit(0))
         .otherwise(lit(1)))
   }
 
   def saveDfToParquet(cleanDf: DataFrame): Unit = {
     cleanDf.write.option("header", "true")
-      .parquet("./data/processed/processed.parquet")
+      .mode(SaveMode.Overwrite)
+      .parquet(PROCESSED_DATA_PATH)
+  }
+
+  def selectColumns(allColumnsDf: DataFrame): DataFrame = {
+    val retDf = allColumnsDf.select(usedCols:_*)
+    retDf
+  }
+
+  def processDf(df: DataFrame): DataFrame = {
+    val processedDf = filterProtocolOutliers(df)
+    processedDf
   }
 
   def main(args: Array[String]): Unit = {
@@ -125,16 +144,17 @@ object Preprocessing {
 
     val renamedDf = renameColumns(rawDf)
     val withTargetColDf = createInfectedCol(renamedDf)
+    val selectedColumnsDf = selectColumns(withTargetColDf)
+    val processedDf = processDf(selectedColumnsDf)
+    processedDf.printSchema()
 
-    withTargetColDf.printSchema()
+    processedDf.show(5)
 
-    withTargetColDf.show(5)
-
-    val finalDf = withTargetColDf
+    val finalDf = processedDf
 
     println(s"Total lines ${finalDf.count}")
 
-    val infectedCount: Long = finalDf.select("Infected").filter(col("Infected") === 1).count()
+    val infectedCount: Long = finalDf.select(INFECTED).filter(col(INFECTED) === 1).count()
 
     println(s"Total of Infected rows: $infectedCount")
 
