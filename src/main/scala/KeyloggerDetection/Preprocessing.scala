@@ -158,7 +158,7 @@ object Preprocessing {
 
     println(s"Total of Infected rows: $infectedCount")
 
-    finalDf.summary().show(false)
+    //finalDf.summary().show(false)
 
     saveDfToParquet(finalDf)
 

@@ -88,18 +88,18 @@ object KeyloggerDetection {
 
     val processedDf = loadDf(spark)
 
-    val Array(training, test) = processedDf.randomSplit(Array(0.7, 0.3), seed = 42)
+//    val Array(training, test) = processedDf.randomSplit(Array(0.7, 0.3), seed = 42)
 
-    val pipeline = createPipeline("LogisticRegression")
+//    val pipeline = createPipeline("LogisticRegression")
 
     println("============ Training Model =============")
     // Fit the pipeline to training documents.
-    val fittedModel = pipeline.fit(training)
-
-    val predictions = fittedModel.transform(test)
-
-    printMetrics(predictions)
-
+//    val fittedModel = pipeline.fit(training)
+//
+//    val predictions = fittedModel.transform(test)
+//
+//    printMetrics(predictions)
+//
     spark.stop()
 
   }
